@@ -1,0 +1,347 @@
+---
+title: "Costa Finlandia"
+format:
+  html:
+    grid:
+      body-width: 1400px
+    resources:
+      - shinylive-sw.js
+filters:
+  - shinylive
+---
+
+```{shinylive-r}
+#| standalone: true
+
+
+library(shiny)
+library(tidyverse)
+library(plotly)
+library(shinydashboard)
+library(gt)
+library(gtsummary)
+library(DT)
+
+
+costa_finlandia <- read_csv(("costa_finlandia_passenger_list.csv"), guess_max = 2000)
+costa_finlandia$Survived <- as.logical(costa_finlandia$Survived)
+costa_finlandia$Age <- as.numeric(costa_finlandia$Age)
+costa_finlandia$Age <- round(costa_finlandia$Age)
+costa_finlandia$Age <- abs(costa_finlandia$Age)
+costa_finlandia$Sex <- factor(costa_finlandia$Sex, levels = c("F", "M"), labels = c("Female","Male"))
+costa_finlandia$Category <- factor(costa_finlandia$Category, levels = c("C", "P"), labels = c("Crew","Passenger"))
+#costa_finlandia <- costa_finlandia |> 
+#  mutate(Country = fct_lump_min(Country, 10))
+  
+
+# Define UI for application that draws a histogram
+ui <- dashboardPage(
+
+    # Application title
+  dashboardHeader(title = "Costa Finlandia"),
+    
+    # Sidebar with a slider input for number of bins 
+  
+  dashboardSidebar(
+    sidebarMenu(
+      menuItem("Selviytyminen", tabName = "survivorpie", icon = icon("person-drowning"))
+    ),
+    menuItem("Ikä", tabName = "agedistripution", icon = icon("cake-candles")),
+    menuItem("Sukupuoli", tabName = "sex", icon = icon("venus-mars")),
+    menuItem("Matkustaja/Miehistö", tabName = "class", icon = icon("ship")),
+    menuItem("Kansallisuus", tabName = "countrytab", icon = icon("flag")),
+    menuItem("Taulukot", tabName = "table", icon = icon("table")),
+    menuItem("Datasetti", tabName = "dataset", icon = icon("database")),
+    checkboxGroupInput(inputId = "sex",
+                       label = "Sukupuoli",
+                       choices = list(
+                         Mies = "Male",
+                         Nainen = "Female"
+                       )
+                       , selected = c("Male", "Female")
+    ),
+    sliderInput(inputId = "age",
+                label = "Ikä (Min - Max)",
+                min = min(costa_finlandia$Age),
+                max = max(costa_finlandia$Age),
+                value = c(min(costa_finlandia$Age),max(costa_finlandia$Age)),
+                sep = ""),
+    checkboxGroupInput(inputId = "country",
+                       label = "Kansallisuus",
+                       choices = list(
+                         Kanada = "Canada",
+                         Tanska = "Denmark",
+                         Norja = "Norway",
+                         Ruotsi = "Sweden",
+                         Suomi = "Finland",
+                         Islanti = "Iceland",
+                         Muu = "Other"
+                       )
+                       , selected = c("Canada", "Denmark", "Norway", "Sweden", "Other", "Finland", "Iceland")
+    ),
+    checkboxGroupInput(inputId = "category",
+                       label = "Matkustaja/Henkilökunta",
+                       choices = list(
+                         Henkilökunta = "Crew",
+                         Matkustaja = "Passenger"
+                       )
+                       , selected = c("Crew", "Passenger")
+    )
+  ),
+  
+  dashboardBody(
+    tabItems(
+      tabItem(tabName = "survivorpie",
+    fluidRow(
+),
+    plotlyOutput(outputId = "survivorbar")
+    ),
+    tabItem(tabName = "agedistripution",
+            tabBox(id = "agebox", title = "Ikäjaukauma", width = 640,
+            tabPanel("Histrogrammi", plotOutput("histogram")),
+            tabPanel("Boxplot", box(plotOutput("boxplot"), width = 640),
+            box(radioButtons(inputId = "boxplotx", label = "Vertailtava kategoria", inline = TRUE, 
+                             choices = list(
+                               Sukupuoli = "Sex", Kansallisuus = "Country", Tyyppi = "Category", Selviytyi = "Survived")
+                             ))
+            ),
+            tabPanel("Area", box(plotOutput("areaplot"), width = 640),
+                     box(radioButtons(inputId = "areaplot", label = "Vertailtava kategoria", inline = TRUE, 
+                                      choices = list(
+                                        Sukupuoli = "Sex", Kansallisuus = "Country", Tyyppi = "Category", Selviytyi = "Survived")
+                     ))
+            ))
+    ),
+tabItem(tabName = "sex",
+        h2("Sukupuoli"),
+        box(plotOutput("sukupuoli"), width = 640),
+        box(radioButtons(inputId = "sukupuoli", label = "Vertailtava kategoria", inline = TRUE, 
+                         choices = list(
+                           Kansallisuus = "Country", Tyyppi = "Category", Selviytyi = "Survived"), selected = "Survived" 
+        ))
+),
+tabItem(tabName = "class",
+        tabBox(id = "classbox", title = "Matkustajat/Miehistö", width = 640, 
+        tabPanel("Absoluuttinen lukumäärä", plotOutput("class", height = 480),
+        box(radioButtons(inputId = "class", label = "Vertailtava kategoria", inline = TRUE, 
+                         choices = list(
+                           Kansallisuus = "Country", Sukupuoli = "Sex", Selviytyi = "Survived"), selected = "Survived" 
+        ))),
+        tabPanel("Suhteellinen osuus", plotOutput("classfill", height = 480),
+                 box(radioButtons(inputId = "classfill", label = "Vertailtava kategoria", inline = TRUE, 
+                                  choices = list(
+                                    Kansallisuus = "Country", Sukupuoli = "Sex", Selviytyi = "Survived"), selected = "Survived" 
+                 )))
+)),
+
+tabItem(tabName = "countrytab",
+        tabBox(id = "countrybox", title = "Kansallisuus", width = 640, 
+               tabPanel("Absoluuttinen lukumäärä", plotOutput("countryabsolut", height = 480),
+                        box(radioButtons(inputId = "countryselect", label = "Vertailtava kategoria", inline = TRUE, 
+                                         choices = list(
+                                           Kategoria = "Category", Sukupuoli = "Sex", Selviytyi = "Survived"), selected = "Survived" 
+                        ))),
+               tabPanel("Suhteellinen osuus", plotOutput("countryfill", height = 480),
+                        box(radioButtons(inputId = "countryfill", label = "Vertailtava kategoria", inline = TRUE, 
+                                         choices = list(
+                                           Kategoria = "Category", Sukupuoli = "Sex", Selviytyi = "Survived"), selected = "Survived" 
+                        )))
+        )),
+tabItem(tabName = "table",
+        tabBox(id = "tablebox", title = "Taulukot", width = 12,
+               tabPanel("Table 1 - Aineiston kuvailu",
+                        fluidRow(
+                          box(gt_output("table"))
+                        )
+               ),
+               tabPanel("Table 2 - Hypoteesin testaus",
+                        fluidRow(
+                          box(gt_output("table2"))
+                        ),
+                        fluidRow(
+                          box(radioButtons(inputId = "table2by", label = "Vertailtava kategoria", inline = TRUE,
+                                           choices = list(
+                                             Sukupuoli = "Sex", Kansallisuus = "Country", Tyyppi = "Category", Selviytyi = "Survived")
+                          ))
+                        )
+               )
+        )
+),
+
+tabItem(
+  tabName = "dataset", DTOutput(outputId = "raakadata"),
+  )
+)
+)
+)
+  
+
+# Define server logic required to draw a histogram
+server <- function(input, output) {
+
+  output$survivorbar <- renderPlotly({
+    # Filter the data based on the inputs
+    filtered_data <- costa_finlandia %>% 
+      filter(Sex %in% input$sex) %>% 
+      filter(Country %in% input$country) %>% 
+      filter(Category %in% input$category) %>% 
+      filter(Age >= input$age[1], Age <= input$age[2])
+    
+    # Count the number of survivors and non-survivors
+    data_to_plot <- filtered_data %>% 
+      count(Survived) %>% 
+      mutate(Percent = n / sum(n) * 100) |> 
+      mutate(Survived = ifelse(Survived, "Selvisi", "Menehtyi"))
+    
+    # Create the pie chart
+    plot_ly(data_to_plot, labels = ~Survived, values = ~n, type = 'pie',
+            textinfo = 'label+percent', insidetextorientation = 'radial') %>% 
+      layout(title = "Selviytyjien osuus")
+  })
+  
+  output$histogram <- renderPlot({
+    # Filter the data based on the inputs
+    filtered_data <- costa_finlandia %>% 
+      filter(Sex %in% input$sex) %>% 
+      filter(Country %in% input$country) %>% 
+      filter(Category %in% input$category) %>% 
+      filter(Age >= input$age[1], Age <= input$age[2])
+    hist(filtered_data$Age, breaks = 20, main = "", xlab = "Matkustajan ikä (v)", ylab ="Lukumäärä", include.lowest = TRUE)
+  })
+  
+  output$boxplot <- renderPlot({
+    # Filter the data based on the inputs
+    filtered_data <- costa_finlandia %>% 
+      filter(Sex %in% input$sex) %>% 
+      filter(Country %in% input$country) %>% 
+      filter(Category %in% input$category) %>% 
+      filter(Age >= input$age[1], Age <= input$age[2])
+    ggplot(filtered_data, aes(x = !!sym(input$boxplotx), y = Age)) + geom_boxplot() + coord_flip() + theme_bw() + scale_y_continuous(breaks=seq(0,100,10))+
+      theme(text = element_text(size = 16),               # Global text size
+            axis.title = element_text(size = 14),         # Axis titles
+            axis.text = element_text(size = 14),          # Axis text
+            plot.title = element_text(size = 20, hjust = 0.5))
+  })
+  
+  output$areaplot <- renderPlot({
+    # Filter the data based on the inputs
+    filtered_data <- costa_finlandia %>% 
+      filter(Sex %in% input$sex) %>% 
+      filter(Country %in% input$country) %>% 
+      filter(Category %in% input$category) %>% 
+      filter(Age >= input$age[1], Age <= input$age[2])
+    ggplot(filtered_data, aes(x = Age, fill = !!sym(input$areaplot))) + geom_area(stat = "bin") + theme_bw()
+  })
+  
+  output$sukupuoli <- renderPlot({
+    filtered_data <- costa_finlandia %>% 
+      filter(Sex %in% input$sex) %>% 
+      filter(Country %in% input$country) %>% 
+      filter(Category %in% input$category) %>% 
+      filter(Age >= input$age[1], Age <= input$age[2])
+      ggplot(filtered_data, aes(x = Sex, fill = !!sym(input$sukupuoli))) + geom_bar() + theme_bw()
+  })
+
+  output$class <- renderPlot({
+    filtered_data <- costa_finlandia %>% 
+      filter(Sex %in% input$sex) %>% 
+      filter(Country %in% input$country) %>% 
+      filter(Category %in% input$category) %>% 
+      filter(Age >= input$age[1], Age <= input$age[2])
+    ggplot(filtered_data, aes(x = Category, fill = !!sym(input$class))) + geom_bar() + theme_bw()
+  })
+  
+  output$classfill <- renderPlot({
+    filtered_data <- costa_finlandia %>% 
+      filter(Sex %in% input$sex) %>% 
+      filter(Country %in% input$country) %>% 
+      filter(Category %in% input$category) %>% 
+      filter(Age >= input$age[1], Age <= input$age[2])
+    ggplot(filtered_data, aes(x = Category, fill = !!sym(input$classfill))) + geom_bar(position = "fill") + theme_bw()
+  })
+  
+  output$countryabsolut <- renderPlot({
+    filtered_data <- costa_finlandia %>% 
+      filter(Sex %in% input$sex) %>% 
+      filter(Country %in% input$country) %>% 
+      filter(Category %in% input$category) %>% 
+      filter(Age >= input$age[1], Age <= input$age[2])
+    ggplot(filtered_data, aes(x = Country, fill = !!sym(input$countryselect))) + geom_bar() + theme_bw()
+  })
+  
+  output$countryfill <- renderPlot({
+    filtered_data <- costa_finlandia %>% 
+      filter(Sex %in% input$sex) %>% 
+      filter(Country %in% input$country) %>% 
+      filter(Category %in% input$category) %>% 
+      filter(Age >= input$age[1], Age <= input$age[2])
+    ggplot(filtered_data, aes(x = Country, fill = !!sym(input$countryfill))) + geom_bar(position = "fill") + theme_bw()
+  })
+  
+
+  output$table <- render_gt({
+    # Filter the data based on the inputs
+    filtered_data <- costa_finlandia %>% 
+      filter(Sex %in% input$sex) %>% 
+      filter(Country %in% input$country) %>% 
+      filter(Category %in% input$category) %>% 
+      filter(Age >= input$age[1], Age <= input$age[2])
+    
+    filtered_data |> 
+      select(-PassengerId) |> 
+      tbl_summary() |> 
+      as_gt()
+  })
+  
+  output$table2 <- render_gt({
+    # Filter the data based on the inputs
+    filtered_data <- costa_finlandia %>% 
+      filter(Sex %in% input$sex) %>% 
+      filter(Country %in% input$country) %>% 
+      filter(Category %in% input$category) %>% 
+      filter(Age >= input$age[1], Age <= input$age[2])
+    
+    filtered_data |> 
+      select(-PassengerId) |> 
+      tbl_summary(by = input$table2by) |> 
+      add_p() |> 
+      bold_p() |> 
+      as_gt()
+  })
+  
+  output$raakadata <- renderDT({
+    filtered_data <- costa_finlandia %>% 
+      filter(Sex %in% input$sex) %>% 
+      filter(Country %in% input$country) %>% 
+      filter(Category %in% input$category) %>% 
+      filter(Age >= input$age[1], Age <= input$age[2])
+    
+    filtered_data |> 
+      select(-PassengerId) |> 
+      datatable()
+  })
+#  output$survivorbar <- renderPlot(
+#    estonia |> 
+#      filter(Sex == input$sex) |> 
+#      filter(Country == input$country) |> 
+#      filter(Category == input$category) |> 
+#      filter(Age >= input$age[1], Age <= input$age[2]) |> 
+#    ggplot(aes(Survived)) + geom_bar() + theme_minimal() 
+#  )
+
+#    output$distPlot <- renderPlot({
+#        # generate bins based on input$bins from ui.R
+#        x    <- faithful[, 2]
+#        bins <- seq(min(x), max(x), length.out = input$bins + 1)
+
+        # draw the histogram with the specified number of bins
+#        hist(x, breaks = bins, col = 'darkgray', border = 'white',
+#             xlab = 'Waiting time to next eruption (in mins)',
+#             main = 'Histogram of waiting times')
+#    })
+}
+
+# Run the application 
+shinyApp(ui = ui, server = server)
+
+```
