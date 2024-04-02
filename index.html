@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.433">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Costa Finlandia</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="R-shinylive-costafinlandia_files/libs/clipboard/clipboard.min.js"></script>
+<script src="R-shinylive-costafinlandia_files/libs/quarto-html/quarto.js"></script>
+<script src="R-shinylive-costafinlandia_files/libs/quarto-html/popper.min.js"></script>
+<script src="R-shinylive-costafinlandia_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="R-shinylive-costafinlandia_files/libs/quarto-html/anchor.min.js"></script>
+<link href="R-shinylive-costafinlandia_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="R-shinylive-costafinlandia_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="R-shinylive-costafinlandia_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="R-shinylive-costafinlandia_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="R-shinylive-costafinlandia_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<meta name="shinylive:serviceworker_dir" content=".">
+<script src="R-shinylive-costafinlandia_files/libs/quarto-contrib/shinylive-0.2.3/shinylive/load-shinylive-sw.js" type="module"></script>
+<script src="R-shinylive-costafinlandia_files/libs/quarto-contrib/shinylive-0.2.3/shinylive/run-python-blocks.js" type="module"></script>
+<link href="R-shinylive-costafinlandia_files/libs/quarto-contrib/shinylive-0.2.3/shinylive/shinylive.css" rel="stylesheet">
+<link href="R-shinylive-costafinlandia_files/libs/quarto-contrib/shinylive-quarto-css/shinylive-quarto.css" rel="stylesheet">
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Costa Finlandia</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<pre class="shinylive-r" data-engine="r"><code>#| standalone: true
+
+
+library(shiny)
+library(tidyverse)
+library(plotly)
+library(shinydashboard)
+library(gt)
+library(gtsummary)
+library(DT)
+
+
+costa_finlandia &lt;- read_csv(("costa_finlandia_passenger_list.csv"), guess_max = 2000)
+costa_finlandia$Survived &lt;- as.logical(costa_finlandia$Survived)
+costa_finlandia$Age &lt;- as.numeric(costa_finlandia$Age)
+costa_finlandia$Age &lt;- round(costa_finlandia$Age)
+costa_finlandia$Age &lt;- abs(costa_finlandia$Age)
+costa_finlandia$Sex &lt;- factor(costa_finlandia$Sex, levels = c("F", "M"), labels = c("Female","Male"))
+costa_finlandia$Category &lt;- factor(costa_finlandia$Category, levels = c("C", "P"), labels = c("Crew","Passenger"))
+#costa_finlandia &lt;- costa_finlandia |&gt; 
+#  mutate(Country = fct_lump_min(Country, 10))
+  
+
+# Define UI for application that draws a histogram
+ui &lt;- dashboardPage(
+
+    # Application title
+  dashboardHeader(title = "Costa Finlandia"),
+    
+    # Sidebar with a slider input for number of bins 
+  
+  dashboardSidebar(
+    sidebarMenu(
+      menuItem("Selviytyminen", tabName = "survivorpie", icon = icon("person-drowning"))
+    ),
+    menuItem("Ikä", tabName = "agedistripution", icon = icon("cake-candles")),
+    menuItem("Sukupuoli", tabName = "sex", icon = icon("venus-mars")),
+    menuItem("Matkustaja/Miehistö", tabName = "class", icon = icon("ship")),
+    menuItem("Kansallisuus", tabName = "countrytab", icon = icon("flag")),
+    menuItem("Taulukot", tabName = "table", icon = icon("table")),
+    menuItem("Datasetti", tabName = "dataset", icon = icon("database")),
+    checkboxGroupInput(inputId = "sex",
+                       label = "Sukupuoli",
+                       choices = list(
+                         Mies = "Male",
+                         Nainen = "Female"
+                       )
+                       , selected = c("Male", "Female")
+    ),
+    sliderInput(inputId = "age",
+                label = "Ikä (Min - Max)",
+                min = min(costa_finlandia$Age),
+                max = max(costa_finlandia$Age),
+                value = c(min(costa_finlandia$Age),max(costa_finlandia$Age)),
+                sep = ""),
+    checkboxGroupInput(inputId = "country",
+                       label = "Kansallisuus",
+                       choices = list(
+                         Kanada = "Canada",
+                         Tanska = "Denmark",
+                         Norja = "Norway",
+                         Ruotsi = "Sweden",
+                         Suomi = "Finland",
+                         Islanti = "Iceland",
+                         Muu = "Other"
+                       )
+                       , selected = c("Canada", "Denmark", "Norway", "Sweden", "Other", "Finland", "Iceland")
+    ),
+    checkboxGroupInput(inputId = "category",
+                       label = "Matkustaja/Henkilökunta",
+                       choices = list(
+                         Henkilökunta = "Crew",
+                         Matkustaja = "Passenger"
+                       )
+                       , selected = c("Crew", "Passenger")
+    )
+  ),
+  
+  dashboardBody(
+    tabItems(
+      tabItem(tabName = "survivorpie",
+    fluidRow(
+),
+    plotlyOutput(outputId = "survivorbar")
+    ),
+    tabItem(tabName = "agedistripution",
+            tabBox(id = "agebox", title = "Ikäjaukauma", width = 640,
+            tabPanel("Histrogrammi", plotOutput("histogram")),
+            tabPanel("Boxplot", box(plotOutput("boxplot"), width = 640),
+            box(radioButtons(inputId = "boxplotx", label = "Vertailtava kategoria", inline = TRUE, 
+                             choices = list(
+                               Sukupuoli = "Sex", Kansallisuus = "Country", Tyyppi = "Category", Selviytyi = "Survived")
+                             ))
+            ),
+            tabPanel("Area", box(plotOutput("areaplot"), width = 640),
+                     box(radioButtons(inputId = "areaplot", label = "Vertailtava kategoria", inline = TRUE, 
+                                      choices = list(
+                                        Sukupuoli = "Sex", Kansallisuus = "Country", Tyyppi = "Category", Selviytyi = "Survived")
+                     ))
+            ))
+    ),
+tabItem(tabName = "sex",
+        h2("Sukupuoli"),
+        box(plotOutput("sukupuoli"), width = 640),
+        box(radioButtons(inputId = "sukupuoli", label = "Vertailtava kategoria", inline = TRUE, 
+                         choices = list(
+                           Kansallisuus = "Country", Tyyppi = "Category", Selviytyi = "Survived"), selected = "Survived" 
+        ))
+),
+tabItem(tabName = "class",
+        tabBox(id = "classbox", title = "Matkustajat/Miehistö", width = 640, 
+        tabPanel("Absoluuttinen lukumäärä", plotOutput("class", height = 480),
+        box(radioButtons(inputId = "class", label = "Vertailtava kategoria", inline = TRUE, 
+                         choices = list(
+                           Kansallisuus = "Country", Sukupuoli = "Sex", Selviytyi = "Survived"), selected = "Survived" 
+        ))),
+        tabPanel("Suhteellinen osuus", plotOutput("classfill", height = 480),
+                 box(radioButtons(inputId = "classfill", label = "Vertailtava kategoria", inline = TRUE, 
+                                  choices = list(
+                                    Kansallisuus = "Country", Sukupuoli = "Sex", Selviytyi = "Survived"), selected = "Survived" 
+                 )))
+)),
+
+tabItem(tabName = "countrytab",
+        tabBox(id = "countrybox", title = "Kansallisuus", width = 640, 
+               tabPanel("Absoluuttinen lukumäärä", plotOutput("countryabsolut", height = 480),
+                        box(radioButtons(inputId = "countryselect", label = "Vertailtava kategoria", inline = TRUE, 
+                                         choices = list(
+                                           Kategoria = "Category", Sukupuoli = "Sex", Selviytyi = "Survived"), selected = "Survived" 
+                        ))),
+               tabPanel("Suhteellinen osuus", plotOutput("countryfill", height = 480),
+                        box(radioButtons(inputId = "countryfill", label = "Vertailtava kategoria", inline = TRUE, 
+                                         choices = list(
+                                           Kategoria = "Category", Sukupuoli = "Sex", Selviytyi = "Survived"), selected = "Survived" 
+                        )))
+        )),
+tabItem(tabName = "table",
+        tabBox(id = "tablebox", title = "Taulukot", width = 12,
+               tabPanel("Table 1 - Aineiston kuvailu",
+                        fluidRow(
+                          box(gt_output("table"))
+                        )
+               ),
+               tabPanel("Table 2 - Hypoteesin testaus",
+                        fluidRow(
+                          box(gt_output("table2"))
+                        ),
+                        fluidRow(
+                          box(radioButtons(inputId = "table2by", label = "Vertailtava kategoria", inline = TRUE,
+                                           choices = list(
+                                             Sukupuoli = "Sex", Kansallisuus = "Country", Tyyppi = "Category", Selviytyi = "Survived")
+                          ))
+                        )
+               )
+        )
+),
+
+tabItem(
+  tabName = "dataset", DTOutput(outputId = "raakadata"),
+  )
+)
+)
+)
+  
+
+# Define server logic required to draw a histogram
+server &lt;- function(input, output) {
+
+  output$survivorbar &lt;- renderPlotly({
+    # Filter the data based on the inputs
+    filtered_data &lt;- costa_finlandia %&gt;% 
+      filter(Sex %in% input$sex) %&gt;% 
+      filter(Country %in% input$country) %&gt;% 
+      filter(Category %in% input$category) %&gt;% 
+      filter(Age &gt;= input$age[1], Age &lt;= input$age[2])
+    
+    # Count the number of survivors and non-survivors
+    data_to_plot &lt;- filtered_data %&gt;% 
+      count(Survived) %&gt;% 
+      mutate(Percent = n / sum(n) * 100) |&gt; 
+      mutate(Survived = ifelse(Survived, "Selvisi", "Menehtyi"))
+    
+    # Create the pie chart
+    plot_ly(data_to_plot, labels = ~Survived, values = ~n, type = 'pie',
+            textinfo = 'label+percent', insidetextorientation = 'radial') %&gt;% 
+      layout(title = "Selviytyjien osuus")
+  })
+  
+  output$histogram &lt;- renderPlot({
+    # Filter the data based on the inputs
+    filtered_data &lt;- costa_finlandia %&gt;% 
+      filter(Sex %in% input$sex) %&gt;% 
+      filter(Country %in% input$country) %&gt;% 
+      filter(Category %in% input$category) %&gt;% 
+      filter(Age &gt;= input$age[1], Age &lt;= input$age[2])
+    hist(filtered_data$Age, breaks = 20, main = "", xlab = "Matkustajan ikä (v)", ylab ="Lukumäärä", include.lowest = TRUE)
+  })
+  
+  output$boxplot &lt;- renderPlot({
+    # Filter the data based on the inputs
+    filtered_data &lt;- costa_finlandia %&gt;% 
+      filter(Sex %in% input$sex) %&gt;% 
+      filter(Country %in% input$country) %&gt;% 
+      filter(Category %in% input$category) %&gt;% 
+      filter(Age &gt;= input$age[1], Age &lt;= input$age[2])
+    ggplot(filtered_data, aes(x = !!sym(input$boxplotx), y = Age)) + geom_boxplot() + coord_flip() + theme_bw() + scale_y_continuous(breaks=seq(0,100,10))+
+      theme(text = element_text(size = 16),               # Global text size
+            axis.title = element_text(size = 14),         # Axis titles
+            axis.text = element_text(size = 14),          # Axis text
+            plot.title = element_text(size = 20, hjust = 0.5))
+  })
+  
+  output$areaplot &lt;- renderPlot({
+    # Filter the data based on the inputs
+    filtered_data &lt;- costa_finlandia %&gt;% 
+      filter(Sex %in% input$sex) %&gt;% 
+      filter(Country %in% input$country) %&gt;% 
+      filter(Category %in% input$category) %&gt;% 
+      filter(Age &gt;= input$age[1], Age &lt;= input$age[2])
+    ggplot(filtered_data, aes(x = Age, fill = !!sym(input$areaplot))) + geom_area(stat = "bin") + theme_bw()
+  })
+  
+  output$sukupuoli &lt;- renderPlot({
+    filtered_data &lt;- costa_finlandia %&gt;% 
+      filter(Sex %in% input$sex) %&gt;% 
+      filter(Country %in% input$country) %&gt;% 
+      filter(Category %in% input$category) %&gt;% 
+      filter(Age &gt;= input$age[1], Age &lt;= input$age[2])
+      ggplot(filtered_data, aes(x = Sex, fill = !!sym(input$sukupuoli))) + geom_bar() + theme_bw()
+  })
+
+  output$class &lt;- renderPlot({
+    filtered_data &lt;- costa_finlandia %&gt;% 
+      filter(Sex %in% input$sex) %&gt;% 
+      filter(Country %in% input$country) %&gt;% 
+      filter(Category %in% input$category) %&gt;% 
+      filter(Age &gt;= input$age[1], Age &lt;= input$age[2])
+    ggplot(filtered_data, aes(x = Category, fill = !!sym(input$class))) + geom_bar() + theme_bw()
+  })
+  
+  output$classfill &lt;- renderPlot({
+    filtered_data &lt;- costa_finlandia %&gt;% 
+      filter(Sex %in% input$sex) %&gt;% 
+      filter(Country %in% input$country) %&gt;% 
+      filter(Category %in% input$category) %&gt;% 
+      filter(Age &gt;= input$age[1], Age &lt;= input$age[2])
+    ggplot(filtered_data, aes(x = Category, fill = !!sym(input$classfill))) + geom_bar(position = "fill") + theme_bw()
+  })
+  
+  output$countryabsolut &lt;- renderPlot({
+    filtered_data &lt;- costa_finlandia %&gt;% 
+      filter(Sex %in% input$sex) %&gt;% 
+      filter(Country %in% input$country) %&gt;% 
+      filter(Category %in% input$category) %&gt;% 
+      filter(Age &gt;= input$age[1], Age &lt;= input$age[2])
+    ggplot(filtered_data, aes(x = Country, fill = !!sym(input$countryselect))) + geom_bar() + theme_bw()
+  })
+  
+  output$countryfill &lt;- renderPlot({
+    filtered_data &lt;- costa_finlandia %&gt;% 
+      filter(Sex %in% input$sex) %&gt;% 
+      filter(Country %in% input$country) %&gt;% 
+      filter(Category %in% input$category) %&gt;% 
+      filter(Age &gt;= input$age[1], Age &lt;= input$age[2])
+    ggplot(filtered_data, aes(x = Country, fill = !!sym(input$countryfill))) + geom_bar(position = "fill") + theme_bw()
+  })
+  
+
+  output$table &lt;- render_gt({
+    # Filter the data based on the inputs
+    filtered_data &lt;- costa_finlandia %&gt;% 
+      filter(Sex %in% input$sex) %&gt;% 
+      filter(Country %in% input$country) %&gt;% 
+      filter(Category %in% input$category) %&gt;% 
+      filter(Age &gt;= input$age[1], Age &lt;= input$age[2])
+    
+    filtered_data |&gt; 
+      select(-PassengerId) |&gt; 
+      tbl_summary() |&gt; 
+      as_gt()
+  })
+  
+  output$table2 &lt;- render_gt({
+    # Filter the data based on the inputs
+    filtered_data &lt;- costa_finlandia %&gt;% 
+      filter(Sex %in% input$sex) %&gt;% 
+      filter(Country %in% input$country) %&gt;% 
+      filter(Category %in% input$category) %&gt;% 
+      filter(Age &gt;= input$age[1], Age &lt;= input$age[2])
+    
+    filtered_data |&gt; 
+      select(-PassengerId) |&gt; 
+      tbl_summary(by = input$table2by) |&gt; 
+      add_p() |&gt; 
+      bold_p() |&gt; 
+      as_gt()
+  })
+  
+  output$raakadata &lt;- renderDT({
+    filtered_data &lt;- costa_finlandia %&gt;% 
+      filter(Sex %in% input$sex) %&gt;% 
+      filter(Country %in% input$country) %&gt;% 
+      filter(Category %in% input$category) %&gt;% 
+      filter(Age &gt;= input$age[1], Age &lt;= input$age[2])
+    
+    filtered_data |&gt; 
+      select(-PassengerId) |&gt; 
+      datatable()
+  })
+#  output$survivorbar &lt;- renderPlot(
+#    estonia |&gt; 
+#      filter(Sex == input$sex) |&gt; 
+#      filter(Country == input$country) |&gt; 
+#      filter(Category == input$category) |&gt; 
+#      filter(Age &gt;= input$age[1], Age &lt;= input$age[2]) |&gt; 
+#    ggplot(aes(Survived)) + geom_bar() + theme_minimal() 
+#  )
+
+#    output$distPlot &lt;- renderPlot({
+#        # generate bins based on input$bins from ui.R
+#        x    &lt;- faithful[, 2]
+#        bins &lt;- seq(min(x), max(x), length.out = input$bins + 1)
+
+        # draw the histogram with the specified number of bins
+#        hist(x, breaks = bins, col = 'darkgray', border = 'white',
+#             xlab = 'Waiting time to next eruption (in mins)',
+#             main = 'Histogram of waiting times')
+#    })
+}
+
+# Run the application 
+shinyApp(ui = ui, server = server)
+</code></pre>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
